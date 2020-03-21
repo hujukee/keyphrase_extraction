@@ -1,0 +1,48 @@
+toy_text = """
+Elephants are large mammals of the family Elephantidae
+and the order Proboscidea. Two species are traditionally recognised,
+the African elephant and the Asian elephant. Elephants are scattered
+throughout sub-Saharan Africa, South Asia, and Southeast Asia. Male
+African elephants are the largest extant terrestrial animals. All
+elephants have a long trunk used for many purposes,
+particularly breathing, lifting water and grasping objects. Their
+incisors grow into tusks, which can serve as weapons and as tools
+for moving objects and digging. Elephants' large ear flaps help
+to control their body temperature. Their pillar-like legs can
+carry their great weight. African elephants have larger ears
+and concave backs while Asian elephants have smaller ears
+and convex or level backs.
+"""
+
+from nltk import word_tokenize, sent_tokenize, pos_tag_sents
+import itertools
+import nltk
+from nltk.corpus import stopwords
+from gensim import corpora, models
+
+def get_chunks(sentences, grammar = r'NP: {<DT>? <JJ>* <NN.*>+}'):
+    # build chunker based on grammar pattern
+    all_chunks = []
+    chunker = nltk.chunk.regexp.RegexpParser(grammar)
+    for sentence in sentences:
+        # POS tag sentences
+        tagged_sents = nltk.pos_tag_sents([nltk.word_tokenize(sentence)])
+        # extract chunks
+        chunks = [chunker.parse(tagged_sent) for tagged_sent in tagged_sents]
+        # get word, pos tag, chunk tag triples
+        wtc_sents = [nltk.chunk.tree2conlltags(chunk) for chunk in chunks]
+        flattened_chunks = list(itertools.chain.from_iterable(wtc_sent for wtc_sent in wtc_sents))
+        # get valid chunks based on tags
+        valid_chunks_tagged = [(status, [wtc for wtc in chunk])
+                    for status, chunk
+                    in itertools.groupby(flattened_chunks,
+                                        lambda word_pos_chunk: word_pos_chunk[2] != 'o')]
+        # append words in each chunk to make phrases
+        valid_chunks = [' '.join(word.lower() for word, tag, chunk in wtc_group if word.lower() not in stopwords) for status, wtc_group in valid_chunks_tagged if status]
+        # append all valid chunked phrases
+        all_chunks.append(valid_chunks)
+    return all_chunks
+
+sentences = sent_tokenize(toy_text)
+valid_chunks = get_chunks(sentences)
+print(valid_chunks)
